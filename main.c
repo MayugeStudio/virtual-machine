@@ -42,21 +42,21 @@ typedef struct Token {
 
 typedef struct Tokens {
     struct Token *items;
-    size_t len;
+    size_t count;
     size_t capacity;
 } Tokens;
 
 #define DYN_ALLAY_DEFAULT_CAPACITY 256
 
-void push_token(Tokens *s, Token token)
-{
-    if (s->len >= s->capacity) {
-        if (s->capacity == 0) s->capacity = DYN_ALLAY_DEFAULT_CAPACITY;
-        else s->capacity *= 2;
-        s->items = realloc(s->items, s->capacity*sizeof(*s->items));
-    }
-    s->items[s->len++] = token;
-}
+#define DA_APPEND(xs, item) \
+    do { \
+        if ((xs)->count >= (xs)->capacity) { \
+            (xs)->capacity = (xs)->capacity == 0 ? DYN_ALLAY_DEFAULT_CAPACITY : (xs)->capacity * 2; \
+            (xs)->items = realloc((xs)->items, (xs)->capacity*sizeof(*(xs)->items)); \
+        } \
+        (xs)->items[(xs)->count++] = (item); \
+    } while (0)
+
 
 typedef struct Lexer {
     struct Tokens tokens;
@@ -74,7 +74,7 @@ Lexer *new_lexer()
     return lexer;
 }
 
-
+// TODO: Introduce 'next_token' function or something like this.
 void lex_file(Lexer *l, const char *content, const size_t content_size)
 {
     size_t cur = 0;
@@ -84,8 +84,7 @@ void lex_file(Lexer *l, const char *content, const size_t content_size)
         cur += 1;
         if (isspace(content[cur])) {
             Token token = { .begin=&content[begin], .end=&content[cur], .eol=false };
-            printf("INFO: \"%.*s\"\n", (int)(token.end-token.begin), token.begin);
-            push_token(&l->tokens, token);
+            DA_APPEND(&l->tokens, token);
             cur += 1;
             begin = cur;
             continue;
@@ -99,8 +98,7 @@ int main(void)
     char *buffer = File_read_all("example.vasm", &size);
     Lexer *lexer = new_lexer();
     lex_file(lexer, buffer, size);
-    printf("------------------\n");
-    for (int i=0; i<(int)lexer->tokens.len; ++i) {
+    for (int i=0; i<(int)lexer->tokens.count; ++i) {
         Token t = lexer->tokens.items[i];
         if (t.eol) {
             printf("%d: EOL\n", i+1);
@@ -113,4 +111,6 @@ int main(void)
     free(lexer);
     return 0;
 }
+
 // : 1 1 + done get_at @1
+
