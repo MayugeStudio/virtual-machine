@@ -37,7 +37,7 @@ char *File_read_all(const char *path, size_t *size)
 typedef struct Token {
     const char *begin;
     const char *end;
-    bool eol;
+    bool eof;
 } Token;
 
 typedef struct Tokens {
@@ -80,16 +80,19 @@ void lex_file(Lexer *l, const char *content, const size_t content_size)
     size_t cur = 0;
     size_t begin = 0;
 
-    while (cur < content_size) {
+    while (cur <= content_size) {
         cur += 1;
         if (isspace(content[cur])) {
-            Token token = { .begin=&content[begin], .end=&content[cur], .eol=false };
+            Token token = { .begin=&content[begin], .end=&content[cur], .eof=false };
             DA_APPEND(&l->tokens, token);
             cur += 1;
             begin = cur;
             continue;
         }
     }
+
+    Token token = { .begin=&content[begin], .end=&content[begin], .eof=true };
+    DA_APPEND(&l->tokens, token);
 }
 
 int main(void)
@@ -100,11 +103,7 @@ int main(void)
     lex_file(lexer, buffer, size);
     for (int i=0; i<(int)lexer->tokens.count; ++i) {
         Token t = lexer->tokens.items[i];
-        if (t.eol) {
-            printf("%d: EOL\n", i+1);
-        } else {
-            printf("%d: \'%.*s\'\n", i+1, (int)(t.end - t.begin), t.begin);
-        }
+        printf("%d: \'%.*s\' %s \n", i+1, (int)(t.end - t.begin), t.begin, t.eof ? "EOF" : "");
     }
 
     free(buffer);
