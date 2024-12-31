@@ -172,7 +172,7 @@ void parse_tokens(Lexer *l)
                 printf("Equal\n");
                 int operand = -1;
                 if (op_operand_counts[i] != 0) {
-                    // TODO: Support serveral operands.
+                    // TODO: Support several operands.
                     // TODO: Use error-message-function Instead of assertion.
                     assert(n+1 < l->tokens.count);
                     // NOTE: parse next token to get operand.
