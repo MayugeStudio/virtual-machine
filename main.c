@@ -5,6 +5,8 @@
 #include <string.h>
 #include <stdbool.h>
 
+#define UNREACHABLE(fn) assert(0 && ("UNREACHABLE "fn"\n"))
+
 #define ARRAY_LEN(xs) sizeof(xs)/sizeof(*xs)
 #define DA_ALLAY_DEFAULT_CAPACITY 256
 #define DA_APPEND(xs, item) \
@@ -169,7 +171,6 @@ void parse_tokens(Lexer *l)
         for (size_t i=0; i<ARRAY_LEN(op_names); ++i) {
             assert(ARRAY_LEN(op_names) == ARRAY_LEN(op_kinds));
             if (token_equal_cstr(l->tokens.items[n], op_names[i])) {
-                printf("Equal\n");
                 int operand = -1;
                 if (op_operand_counts[i] != 0) {
                     // TODO: Support several operands.
@@ -192,6 +193,64 @@ void parse_tokens(Lexer *l)
     }
 }
 
+typedef struct Program_Stack {
+    int *items;
+    size_t count;
+    size_t capacity;
+} Program_Stack;
+
+void interpret_program(Lexer *l)
+{
+    size_t pc = 0;
+    Program_Stack stack = {0};
+    while (pc < l->ops.count) {
+        Operation op = l->ops.items[pc];
+        switch (op.kind) {
+            case OpKind_Push: {
+                DA_APPEND(&stack, op.operand);
+                pc += 1;
+                printf("push: %d\n", op.operand);
+            } break;
+            case OpKind_Add: {
+                assert(stack.count >= 2);
+                int a = stack.items[stack.count-1];
+                int b = stack.items[stack.count-2];
+                stack.count -= 2;
+                DA_APPEND(&stack, a+b);
+                pc += 1;
+                printf("add: %d + %d\n", a, b);
+            } break;
+            case OpKind_Write: {
+                assert(stack.count != 0);
+                int a = stack.items[stack.count-1];
+                stack.count -= 1;
+                printf("%d\n", a);
+                pc += 1;
+            } break;
+            default: UNREACHABLE();
+        }
+    }
+}
+
+void dump_tokens(const Lexer *l)
+{
+    printf("Tokens\n");
+    for (size_t i=0; i<l->tokens.count; ++i) {
+        Token t = l->tokens.items[i];
+        printf("%ld: \'%.*s\' %s \n", i+1, (int)(t.end - t.begin), t.begin, t.eof ? "EOF" : "");
+    }
+}
+
+void dump_operations(const Lexer *l)
+{
+    printf("Operations:\n");
+    for (size_t i=0; i<l->ops.count; ++i) {
+        Operation op = l->ops.items[i];
+        printf("kind: %d\n operand: %d\n", (int)op.kind, op.operand);
+        printf("########################\n");
+    }
+}
+
 int main(void)
 {
     size_t size;
@@ -199,21 +258,8 @@ int main(void)
     char *buffer = File_read_all(file_path, &size);
     Lexer *lexer = new_lexer(file_path);
     lex_file(lexer, buffer, size);
-    for (size_t i=0; i<lexer->tokens.count; ++i) {
-        Token t = lexer->tokens.items[i];
-        printf("%ld: \'%.*s\' %s \n", i+1, (int)(t.end - t.begin), t.begin, t.eof ? "EOF" : "");
-    }
-
     parse_tokens(lexer);
-    printf("------------------------------------------\n");
-    printf("Operations:\n");
-
-    for (size_t i=0; i<lexer->ops.count; ++i) {
-        Operation op = lexer->ops.items[i];
-        printf("kind: %d\n operand: %d\n", (int)op.kind, op.operand);
-        printf("########################\n");
-    }
-
+    interpret_program(lexer);
     free(buffer);
     free(lexer);
     return 0;
